@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Information - Airport Kiosk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('/flight-icon.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d3436;
+        }
+
+        .time-display {
+            font-size: 18px;
+            color: #636e72;
+            font-weight: 500;
+        }
+
+        .page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px);
+        }
+
+        .page-title {
+            font-size: 42px;
+            color: #2d3436;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #74b9ff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #74b9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #74b9ff;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .back-gesture {
+            position: fixed;
+            top: 30px;
+            left: 100px;
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            z-index: 1000;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3436;
+            margin-bottom: 12px;
+        }
+
+        .select-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .custom-select {
+            flex: 1;
+            position: relative;
+        }
+
+        .select-display {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .select-display:hover {
+            border-color: #74b9ff;
+        }
+
+        .select-display.active {
+            border-color: #0984e3;
+            box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.2);
+        }
+
+        .select-arrow {
+            margin-left: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .select-display.active .select-arrow {
+            transform: rotate(180deg);
+        }
+
+        .select-options {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #74b9ff;
+            border-radius: 12px;
+            margin-top: 5px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .select-options.active {
+            display: block;
+        }
+
+        .select-option {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .select-option:last-child {
+            border-bottom: none;
+        }
+
+        .select-option:hover {
+            background: #f8f9fa;
+        }
+
+        .option-text {
+            font-size: 18px;
+            color: #2d3436;
+            flex: 1;
+        }
+
+        .option-gesture {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            margin-left: 15px;
+        }
+
+        .gesture-icon {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .flight-details-card {
+            display: none;
+            background: white;
+            border: 3px solid #74b9ff;
+            border-radius: 20px;
+            padding: 40px;
+            margin: 30px 0;
+            animation: slideIn 0.5s ease;
+        }
+
+        .flight-details-card.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .detail-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 35px;
+            color: white;
+        }
+
+        .detail-title {
+            flex: 1;
+        }
+
+        .detail-title h2 {
+            font-size: 32px;
+            color: #2d3436;
+            margin-bottom: 5px;
+        }
+
+        .flight-gesture-icon {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+            margin-left: auto;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .status-ontime {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-delayed {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .detail-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #74b9ff;
+        }
+
+        .detail-item-label {
+            font-size: 14px;
+            color: #636e72;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .detail-item-value {
+            font-size: 24px;
+            color: #2d3436;
+            font-weight: 600;
+        }
+
+        .route-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 30px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #e8f4fd, #d4edff);
+            border-radius: 15px;
+        }
+
+        .route-point {
+            text-align: center;
+            flex: 1;
+        }
+
+        .route-point-label {
+            font-size: 14px;
+            color: #636e72;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .route-point-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0984e3;
+        }
+
+        .route-point-city {
+            font-size: 18px;
+            color: #2d3436;
+            margin-top: 5px;
+        }
+
+        .route-arrow {
+            font-size: 40px;
+            color: #74b9ff;
+            margin: 0 20px;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">←</a>
+    <img src="static/Images/U.png" alt="Back Gesture" class="back-gesture">
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">✈️ Airport Self-Service Kiosk</div>
+            <div class="time-display" id="currentTime">Loading...</div>
+        </div>
+
+        <div class="page">
+            <div class="page-title">✈️ Flight Information</div>
+            
+            <div class="form-group">
+                <label class="form-label">🔍 Search Flights</label>
+                <div class="select-wrapper">
+                    <div class="custom-select">
+                        <div class="select-display" id="selectDisplay" onclick="toggleDropdown()">
+                            <span id="selectedText">-- Select a Flight --</span>
+                            <span class="select-arrow">▼</span>
+                        </div>
+                        <div class="select-options" id="selectOptions">
+                            <div class="select-option" onclick="selectFlight('SK101')">
+                                <span class="option-text">SK101 - New York (JFK)</span>
+                                <img src="static/Images/B.png" alt="Gesture" class="option-gesture">
+                            </div>
+                            <div class="select-option" onclick="selectFlight('SK205')">
+                                <span class="option-text">SK205 - London (LHR)</span>
+                                <img src="static/Images/C.png" alt="Gesture" class="option-gesture">
+                            </div>
+                            <div class="select-option" onclick="selectFlight('SK308')">
+                                <span class="option-text">SK308 - Paris (CDG)</span>
+                                <img src="static/Images/D.png" alt="Gesture" class="option-gesture">
+                            </div>
+                        </div>
+                    </div>
+                    <img src="static/Images/I.png" alt="Select Gesture" class="gesture-icon">
+                </div>
+            </div>
+
+            <div id="flightDetailsCard" class="flight-details-card">
+                <div class="detail-header">
+                    <div class="detail-icon">🛫</div>
+                    <div class="detail-title">
+                        <h2 id="flightNumber"></h2>
+                        <span id="statusBadge" class="status-badge"></span>
+                    </div>
+                    <img id="flightGestureIcon" src="" alt="Flight Gesture" class="flight-gesture-icon">
+                </div>
+
+                <div class="route-container">
+                    <div class="route-point">
+                        <div class="route-point-label">Departure</div>
+                        <div class="route-point-value" id="sourceCode"></div>
+                        <div class="route-point-city" id="sourceCity"></div>
+                    </div>
+                    <div class="route-arrow">✈️</div>
+                    <div class="route-point">
+                        <div class="route-point-label">Arrival</div>
+                        <div class="route-point-value" id="destCode"></div>
+                        <div class="route-point-city" id="destCity"></div>
+                    </div>
+                </div>
+
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-item-label">📅 Scheduled Departure</div>
+                        <div class="detail-item-value" id="schedTime"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-item-label">🚪 Gate</div>
+                        <div class="detail-item-value" id="gate"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-item-label">🏢 Terminal</div>
+                        <div class="detail-item-value" id="terminal"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-item-label">⏱️ Flight Status</div>
+                        <div class="detail-item-value" id="statusDetail"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const flightData = {
+            'SK101': {
+                number: 'SK101',
+                displayName: 'SK101 - New York (JFK)',
+                source: 'Copenhagen (CPH)',
+                sourceCode: 'CPH',
+                sourceCity: 'Copenhagen',
+                destination: 'New York (JFK)',
+                destCode: 'JFK',
+                destCity: 'New York',
+                scheduledTime: '14:30',
+                gate: 'A12',
+                terminal: '2',
+                status: 'On Time',
+                statusType: 'ontime',
+                delay: null,
+                gestureImage: 'static/Images/B.png'
+            },
+            'SK205': {
+                number: 'SK205',
+                displayName: 'SK205 - London (LHR)',
+                source: 'Copenhagen (CPH)',
+                sourceCode: 'CPH',
+                sourceCity: 'Copenhagen',
+                destination: 'London (LHR)',
+                destCode: 'LHR',
+                destCity: 'London',
+                scheduledTime: '16:45',
+                gate: 'B7',
+                terminal: '1',
+                status: 'Delayed',
+                statusType: 'delayed',
+                delay: '20 minutes',
+                gestureImage: 'static/Images/C.png'
+            },
+            'SK308': {
+                number: 'SK308',
+                displayName: 'SK308 - Paris (CDG)',
+                source: 'Copenhagen (CPH)',
+                sourceCode: 'CPH',
+                sourceCity: 'Copenhagen',
+                destination: 'Paris (CDG)',
+                destCode: 'CDG',
+                destCity: 'Paris',
+                scheduledTime: '18:15',
+                gate: 'C3',
+                terminal: '1',
+                status: 'On Time',
+                statusType: 'ontime',
+                delay: null,
+                gestureImage: 'static/Images/D.png'
+            }
+        };
+
+        function toggleDropdown() {
+            const display = document.getElementById('selectDisplay');
+            const options = document.getElementById('selectOptions');
+            display.classList.toggle('active');
+            options.classList.toggle('active');
+        }
+
+        function selectFlight(flightCode) {
+            const flight = flightData[flightCode];
+            document.getElementById('selectedText').textContent = flight.displayName;
+            toggleDropdown();
+            showFlightDetails(flightCode);
+        }
+
+        function showFlightDetails(selectedFlight) {
+            const detailsCard = document.getElementById('flightDetailsCard');
+
+            if (selectedFlight && flightData[selectedFlight]) {
+                const flight = flightData[selectedFlight];
+                
+                document.getElementById('flightNumber').textContent = flight.number + ' - ' + flight.destination;
+                document.getElementById('sourceCode').textContent = flight.sourceCode;
+                document.getElementById('sourceCity').textContent = flight.sourceCity;
+                document.getElementById('destCode').textContent = flight.destCode;
+                document.getElementById('destCity').textContent = flight.destCity;
+                document.getElementById('schedTime').textContent = flight.scheduledTime;
+                document.getElementById('gate').textContent = flight.gate;
+                document.getElementById('terminal').textContent = flight.terminal;
+                
+                const statusBadge = document.getElementById('statusBadge');
+                statusBadge.textContent = flight.status;
+                statusBadge.className = 'status-badge status-' + flight.statusType;
+                
+                const statusDetail = document.getElementById('statusDetail');
+                if (flight.delay) {
+                    statusDetail.textContent = 'Delayed by ' + flight.delay;
+                    statusDetail.style.color = '#d63031';
+                } else {
+                    statusDetail.textContent = 'On Schedule';
+                    statusDetail.style.color = '#00b894';
+                }
+                
+                document.getElementById('flightGestureIcon').src = flight.gestureImage;
+                
+                detailsCard.classList.add('active');
+            } else {
+                detailsCard.classList.remove('active');
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const customSelect = document.querySelector('.custom-select');
+            if (!customSelect.contains(event.target)) {
+                document.getElementById('selectDisplay').classList.remove('active');
+                document.getElementById('selectOptions').classList.remove('active');
+            }
+        });
+
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('currentTime').textContent = timeString;
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+<script src="/static/js/gesture-handler.js"></script>
+</body>
+</html>

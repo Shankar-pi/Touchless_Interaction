@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airport Map - Airport Kiosk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('/flight-icon.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d3436;
+        }
+
+        .time-display {
+            font-size: 18px;
+            color: #636e72;
+            font-weight: 500;
+        }
+
+        .page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px);
+        }
+
+        .page-title {
+            font-size: 42px;
+            color: #2d3436;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #74b9ff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #74b9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #74b9ff;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .back-gesture {
+            position: fixed;
+            top: 30px;
+            left: 100px;
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            z-index: 1000;
+        }
+
+        .service-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 3px solid #e9ecef;
+            border-radius: 20px;
+            padding: 30px 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            border-color: #74b9ff;
+            box-shadow: 0 15px 35px rgba(116, 185, 255, 0.3);
+        }
+
+        .service-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+        }
+
+        .service-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2d3436;
+            margin-bottom: 10px;
+        }
+
+        .service-description {
+            font-size: 14px;
+            color: #636e72;
+            line-height: 1.5;
+        }
+
+        .service-gesture {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+
+        .detail-section {
+            display: none;
+        }
+
+        .detail-section.active {
+            display: block;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .detail-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 35px;
+            color: white;
+        }
+
+        .detail-title {
+            flex: 1;
+        }
+
+        .detail-title h2 {
+            font-size: 32px;
+            color: #2d3436;
+            margin-bottom: 5px;
+        }
+
+        .detail-gesture-icon {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+            margin-left: auto;
+        }
+
+        .info-box {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 15px 0;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            margin-right: 20px;
+        }
+
+        .btn-back {
+            background: linear-gradient(135deg, #b2bec3, #636e72);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-back:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-back-gesture {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">←</a>
+    <img src="static/Images/U.png" alt="Back Gesture" class="back-gesture">
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">🗺️ Airport Self-Service Kiosk</div>
+            <div class="time-display" id="currentTime">Loading...</div>
+        </div>
+
+        <div class="page">
+            <div class="page-title">🗺️ Airport Map</div>
+            
+            <div id="mainMenu">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 30px 0;">
+                    <div class="service-card" onclick="showSection('terminals')">
+                        <img src="static/Images/B.png" alt="Terminals Gesture" class="service-gesture">
+                        <div class="service-icon">🏢</div>
+                        <div class="service-title">Terminals</div>
+                        <div class="service-description">Terminal information</div>
+                    </div>
+                    
+                    <div class="service-card" onclick="showSection('gates')">
+                        <img src="static/Images/D.png" alt="Gates Gesture" class="service-gesture">
+                        <div class="service-icon">🚪</div>
+                        <div class="service-title">Gates</div>
+                        <div class="service-description">Gate locations and information</div>
+                    </div>
+                    
+                    <div class="service-card" onclick="showSection('restaurants')">
+                        <img src="static/Images/K.png" alt="Restaurants Gesture" class="service-gesture">
+                        <div class="service-icon">🍽️</div>
+                        <div class="service-title">Restaurants</div>
+                        <div class="service-description">Dining and cafe locations</div>
+                    </div>
+                    
+                    <div class="service-card" onclick="showSection('shops')">
+                        <img src="static/Images/F.png" alt="Shops Gesture" class="service-gesture">
+                        <div class="service-icon">🛍️</div>
+                        <div class="service-title">Shops</div>
+                        <div class="service-description">Retail and duty-free stores</div>
+                    </div>
+                    
+                    <div class="service-card" onclick="showSection('facilities')">
+                        <img src="static/Images/H.png" alt="Facilities Gesture" class="service-gesture">
+                        <div class="service-icon">🚻</div>
+                        <div class="service-title">Facilities</div>
+                        <div class="service-description">Restrooms, lounges, services</div>
+                    </div>
+                    
+                    <div class="service-card" onclick="showSection('transport')">
+                        <img src="static/Images/I.png" alt="Transport Gesture" class="service-gesture">
+                        <div class="service-icon">🚌</div>
+                        <div class="service-title">Transport</div>
+                        <div class="service-description">Buses, trains, taxis, parking</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminals Section -->
+            <div id="terminals" class="detail-section">
+                <div class="detail-header">
+                    <div class="detail-icon">🏢</div>
+                    <div class="detail-title">
+                        <h2>Terminals</h2>
+                    </div>
+                    
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-item">
+                        <div class="info-icon">1️⃣</div>
+                        <div>
+                            <h4 style="color: #2d3436; margin-bottom: 5px;">Terminal 1</h4>
+                            <p style="color: #636e72;">Domestic Flights | Gates A1-A20</p>
+                            <p style="color: #636e72; font-size: 14px;">Facilities: Restaurants, Shops, Lounges</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">2️⃣</div>
+                        <div>
+                            <h4 style="color: #2d3436; margin-bottom: 5px;">Terminal 2</h4>
+                            <p style="color: #636e72;">International Flights | Gates B1-B15</p>
+                            <p style="color: #636e72; font-size: 14px;">Facilities: Duty-Free, Currency Exchange, VIP Lounge</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">3️⃣</div>
+                        <div>
+                            <h4 style="color: #2d3436; margin-bottom: 5px;">Terminal 3</h4>
+                            <p style="color: #636e72;">Charter & Regional | Gates C1-C10</p>
+                            <p style="color: #636e72; font-size: 14px;">Facilities: Cafe, Basic Amenities</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-back" onclick="backToMenu()">
+                    ← Back to Map
+                    <img src="static/Images/E.png" alt="Back Gesture" class="btn-back-gesture">
+                </button>
+            </div>
+
+            <!-- Gates Section -->
+            <div id="gates" class="detail-section">
+                <div class="detail-header">
+                    <div class="detail-icon">🚪</div>
+                    <div class="detail-title">
+                        <h2>Gates</h2>
+                    </div>
+                    
+                </div>
+                
+                <div class="info-box">
+                    <h4 style="color: #0984e3; margin-bottom: 15px;">Terminal 1 - Concourse A</h4>
+                    <div class="info-item">
+                        <div class="info-icon">A</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Gates A1-A10</h4>
+                            <p style="color: #636e72;">Domestic departures, left wing</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon">A</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Gates A11-A20</h4>
+                            <p style="color: #636e72;">Domestic departures, right wing</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <h4 style="color: #0984e3; margin-bottom: 15px;">Terminal 2 - Concourse B</h4>
+                    <div class="info-item">
+                        <div class="info-icon">B</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Gates B1-B8</h4>
+                            <p style="color: #636e72;">International departures, near duty-free</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon">B</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Gates B9-B15</h4>
+                            <p style="color: #636e72;">International departures, far end</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <h4 style="color: #0984e3; margin-bottom: 15px;">Terminal 3 - Concourse C</h4>
+                    <div class="info-item">
+                        <div class="info-icon">C</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Gates C1-C10</h4>
+                            <p style="color: #636e72;">Regional and charter flights</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-back" onclick="backToMenu()">
+                    ← Back to Map
+                    <img src="static/Images/E.png" alt="Back Gesture" class="btn-back-gesture">
+                </button>
+            </div>
+
+            <!-- Restaurants Section -->
+            <div id="restaurants" class="detail-section">
+                <div class="detail-header">
+                    <div class="detail-icon">🍽️</div>
+                    <div class="detail-title">
+                        <h2>Restaurants & Cafes</h2>
+                    </div>
+                    
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-item">
+                        <div class="info-icon">☕</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Sky Cafe</h4>
+                            <p style="color: #636e72;">Terminal 1, near Gate A10 | Coffee, pastries, sandwiches</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 5:00 AM - 10:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🍕</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Pizza Express</h4>
+                            <p style="color: #636e72;">Terminal 1, Central Area | Italian cuisine, pizza, pasta</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 6:00 AM - 11:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🍔</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Burger Hub</h4>
+                            <p style="color: #636e72;">Terminal 2, near Gate B5 | Fast food, burgers, fries</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 24 Hours</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🍱</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Sushi Bar</h4>
+                            <p style="color: #636e72;">Terminal 2, International Area | Japanese cuisine</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 7:00 AM - 9:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🥗</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Fresh Salads</h4>
+                            <p style="color: #636e72;">Terminal 1, Gate A15 | Healthy options, salads, smoothies</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 6:00 AM - 8:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🍰</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Sweet Treats Bakery</h4>
+                            <p style="color: #636e72;">Terminal 3, Central | Cakes, desserts, coffee</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 5:00 AM - 9:00 PM</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-back" onclick="backToMenu()">
+                    ← Back to Map
+                    <img src="static/Images/E.png" alt="Back Gesture" class="btn-back-gesture">
+                </button>
+            </div>
+
+            <!-- Shops Section -->
+            <div id="shops" class="detail-section">
+                <div class="detail-header">
+                    <div class="detail-icon">🛍️</div>
+                    <div class="detail-title">
+                        <h2>Shops & Retail</h2>
+                    </div>
+                    
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-item">
+                        <div class="info-icon">🎁</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Duty-Free World</h4>
+                            <p style="color: #636e72;">Terminal 2, International | Perfumes, cosmetics, alcohol, tobacco</p>
+                            <p style="color: #00b894; font-size: 14px;">Tax-free shopping for international passengers</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">📚</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Airport Books & News</h4>
+                            <p style="color: #636e72;">All Terminals | Books, magazines, newspapers, snacks</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 5:00 AM - 11:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">👕</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Fashion Store</h4>
+                            <p style="color: #636e72;">Terminal 1 & 2 | Clothing, accessories, travel essentials</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 6:00 AM - 10:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">💻</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Tech Hub</h4>
+                            <p style="color: #636e72;">Terminal 1, Near Gate A5 | Electronics, gadgets, chargers</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 6:00 AM - 9:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">💎</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Jewelry & Watches</h4>
+                            <p style="color: #636e72;">Terminal 2, Luxury Area | Designer jewelry, watches, gifts</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 7:00 AM - 9:00 PM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🧸</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Souvenir Shop</h4>
+                            <p style="color: #636e72;">All Terminals | Local gifts, toys, memorabilia</p>
+                            <p style="color: #00b894; font-size: 14px;">Open: 5:00 AM - 10:00 PM</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-back" onclick="backToMenu()">
+                    ← Back to Map
+                    <img src="static/Images/E.png" alt="Back Gesture" class="btn-back-gesture">
+                </button>
+            </div>
+
+            <!-- Facilities Section -->
+            <div id="facilities" class="detail-section">
+                <div class="detail-header">
+                    <div class="detail-icon">🚻</div>
+                    <div class="detail-title">
+                        <h2>Facilities & Services</h2>
+                    </div>
+                    
+                </div>
+                
+                <div class="info-box">
+                    <div class="info-item">
+                        <div class="info-icon">🚻</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Restrooms</h4>
+                            <p style="color: #636e72;">Located throughout all terminals near gates and central areas</p>
+                            <p style="color: #636e72; font-size: 14px;">Accessible restrooms available</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🔌</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Charging Stations</h4>
+                            <p style="color: #636e72;">Free charging points near all gate areas and seating zones</p>
+                            <p style="color: #636e72; font-size: 14px;">USB and power outlets available</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">📶</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Free WiFi</h4>
+                            <p style="color: #636e72;">Network: Airport_Free_WiFi | Available throughout airport</p>
+                            <p style="color: #636e72; font-size: 14px;">No password required</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🏦</div>
+                        <div>
+                            <h4 style="color: #2d3436;">ATMs & Currency Exchange</h4>
+                            <p style="color: #636e72;">Located in all terminals near security checkpoints</p>
+                            <p style="color: #636e72; font-size: 14px;">Major currencies available</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🛋️</div>
+                        <div>
+                            <h4 style="color: #2d3436;">VIP Lounges</h4>
+                            <p style="color: #636e72;">Terminal 1 (Gate A12) & Terminal 2 (Gate B8)</p>
+                            <p style="color: #636e72; font-size: 14px;">For business class and premium members</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🏥</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Medical Center</h4>
+                            <p style="color: #636e72;">Terminal 1, Ground Floor | 24/7 medical assistance</p>
+                            <p style="color: #636e72; font-size: 14px;">Emergency: Call 911</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">👶</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Baby Care Rooms</h4>
+                            <p style="color: #636e72;">Available in all terminals near restrooms</p>
+                            <p style="color: #636e72; font-size: 14px;">Private nursing and diaper changing facilities</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🔒</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Luggage Storage</h4>
+                            <p style="color: #636e72;">Terminal 1, Ground Floor | Secure short-term storage</p>
+                            <p style="color: #636e72; font-size: 14px;">Fee: $10 per bag per day</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-back" onclick="backToMenu()">
+                    ← Back to Map
+                    <img src="static/Images/E.png" alt="Back Gesture" class="btn-back-gesture">
+                </button>
+            </div>
+
+            <!-- Transport Section -->
+            <div id="transport" class="detail-section">
+                <div class="detail-header">
+                    <div class="detail-icon">🚌</div>
+                    <div class="detail-title">
+                        <h2>Transportation</h2>
+                    </div>
+                    
+                </div>
+                
+                <div class="info-box">
+                    <h4 style="color: #0984e3; margin-bottom: 15px;">Ground Transportation</h4>
+                    
+                    <div class="info-item">
+                        <div class="info-icon">🚕</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Taxi Service</h4>
+                            <p style="color: #636e72;">Ground Floor, Exit 1-3 | Available 24/7</p>
+                            <p style="color: #636e72; font-size: 14px;">Metered taxis and ride-sharing pickup zones</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🚌</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Airport Shuttle</h4>
+                            <p style="color: #636e72;">Ground Floor, Exit 2 | Every 15 minutes</p>
+                            <p style="color: #636e72; font-size: 14px;">To city center and major hotels | $15 per person</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🚇</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Metro/Train</h4>
+                            <p style="color: #636e72;">Underground Level | Direct connection to city</p>
+                            <p style="color: #636e72; font-size: 14px;">Trains every 10 minutes | 5:00 AM - 12:00 AM</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🚗</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Rental Cars</h4>
+                            <p style="color: #636e72;">Ground Floor, Rental Car Center</p>
+                            <p style="color: #636e72; font-size: 14px;">Major brands: Hertz, Avis, Enterprise, Budget</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🅿️</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Parking</h4>
+                            <p style="color: #636e72;">Short-term: P1, P2 | Long-term: P3, P4</p>
+                            <p style="color: #636e72; font-size: 14px;">Rates: $5/hour (short-term), $25/day (long-term)</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🚐</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Hotel Shuttles</h4>
+                            <p style="color: #636e72;">Ground Floor, Exit 4 | Complimentary for hotel guests</p>
+                            <p style="color: #636e72; font-size: 14px;">Check with your hotel for schedule</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <div class="info-icon">🚲</div>
+                        <div>
+                            <h4 style="color: #2d3436;">Bike Rental</h4>
+                            <p style="color: #636e72;">Outside Terminal 1 | Eco-friendly option</p>
+                            <p style="color: #636e72; font-size: 14px;">$10 per day | Bike lanes to city center</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-back" onclick="backToMenu()">
+                    ← Back to Map
+                    <img src="static/Images/E.png" alt="Back Gesture" class="btn-back-gesture">
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('currentTime').textContent = timeString;
+        }
+        
+        function showSection(section) {
+            // Hide main menu
+            document.getElementById('mainMenu').style.display = 'none';
+            
+            // Hide all detail sections
+            const sections = document.querySelectorAll('.detail-section');
+            sections.forEach(s => s.classList.remove('active'));
+            
+            // Show selected section
+            document.getElementById(section).classList.add('active');
+        }
+
+        function backToMenu() {
+            // Show main menu
+            document.getElementById('mainMenu').style.display = 'block';
+            
+            // Hide all detail sections
+            const sections = document.querySelectorAll('.detail-section');
+            sections.forEach(s => s.classList.remove('active'));
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+<script src="/static/js/gesture-handler.js"></script>
+</body>
+</html>

@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Flight - Airport Kiosk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d3436;
+        }
+
+        .time-display {
+            font-size: 18px;
+            color: #636e72;
+            font-weight: 500;
+        }
+
+        .page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px);
+        }
+
+        .page-title {
+            font-size: 42px;
+            color: #2d3436;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #667eea;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .back-gesture {
+            position: fixed;
+            top: 30px;
+            left: 100px;
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            z-index: 1000;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3436;
+            margin-bottom: 12px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 20px;
+            font-size: 20px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .form-input:disabled {
+            background: #f8f9fa;
+            color: #636e72;
+            cursor: not-allowed;
+        }
+
+        .keypad {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            min-width: 500px;
+        }
+
+        .keypad.active {
+            display: block;
+        }
+
+        .keypad-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1999;
+        }
+
+        .keypad-overlay.active {
+            display: block;
+        }
+
+        .keypad-header {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2d3436;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .keypad-display {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 20px;
+            letter-spacing: 3px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #ddd;
+        }
+
+        .keypad-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .keypad-row.last-row {
+            gap: 15px;
+        }
+
+        .keypad-btn {
+            flex: 1;
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .keypad-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .keypad-btn:active {
+            transform: translateY(0);
+        }
+
+        .keypad-btn.wide {
+            flex: 2;
+        }
+
+        .keypad-btn img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+
+        .dropdown-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            z-index: 2000;
+            min-width: 600px;
+        }
+
+        .dropdown-modal.active {
+            display: block;
+        }
+
+        .dropdown-header {
+            font-size: 28px;
+            font-weight: 600;
+            color: #2d3436;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .dropdown-option {
+            padding: 25px;
+            margin: 15px 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: white;
+            font-size: 22px;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .dropdown-option:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .dropdown-option img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .info-box {
+            background: #e8f4fd;
+            border: 2px solid #667eea;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .btn {
+            padding: 18px 35px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn.show {
+            display: flex;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn img {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+
+        .error-message {
+            background: #fee;
+            border: 2px solid #f44;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #c00;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #efe;
+            border: 2px solid #4f4;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #080;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .receipt {
+            display: none;
+            background: white;
+            border: 3px solid #667eea;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+
+        .receipt.show {
+            display: block;
+        }
+
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px dashed #667eea;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+
+        .receipt-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">←</a>
+    <img src="static/Images/U.png" alt="Back Gesture" class="back-gesture">
+    
+    <div class="keypad-overlay" id="keypadOverlay"></div>
+    
+    <div class="keypad" id="aadharKeypad">
+        <div class="keypad-header">🆔 Enter Aadhar Number</div>
+        <div class="keypad-display" id="aadharDisplay">____________</div>
+        
+        <div class="keypad-row">
+            <button class="keypad-btn" onclick="addDigit('1')">
+                <span>1</span>
+                <img src="static/Images/A.png" alt="1">
+            </button>
+            <button class="keypad-btn" onclick="addDigit('2')">
+                <span>2</span>
+                <img src="static/Images/B.png" alt="2">
+            </button>
+            <button class="keypad-btn" onclick="addDigit('3')">
+                <span>3</span>
+                <img src="static/Images/C.png" alt="3">
+            </button>
+        </div>
+        
+        <div class="keypad-row">
+            <button class="keypad-btn" onclick="addDigit('4')">
+                <span>4</span>
+                <img src="static/Images/D.png" alt="4">
+            </button>
+            <button class="keypad-btn" onclick="addDigit('5')">
+                <span>5</span>
+                <img src="static/Images/E.png" alt="5">
+            </button>
+            <button class="keypad-btn" onclick="addDigit('6')">
+                <span>6</span>
+                <img src="static/Images/M.png" alt="6">
+            </button>
+        </div>
+        
+        <div class="keypad-row">
+            <button class="keypad-btn" onclick="addDigit('7')">
+                <span>7</span>
+                <img src="static/Images/R.png" alt="7">
+            </button>
+            <button class="keypad-btn" onclick="addDigit('8')">
+                <span>8</span>
+                <img src="static/Images/H.png" alt="8">
+            </button>
+            <button class="keypad-btn" onclick="addDigit('9')">
+                <span>9</span>
+                <img src="static/Images/I.png" alt="9">
+            </button>
+        </div>
+        
+        <div class="keypad-row last-row">
+            <button class="keypad-btn wide" onclick="addDigit('0')">
+                <span>0</span>
+                <img src="static/Images/T.png" alt="0">
+            </button>
+            <button class="keypad-btn wide" onclick="backspace()">
+                <span>⌫</span>
+                <img src="static/Images/K.png" alt="Backspace">
+            </button>
+        </div>
+    </div>
+
+    <div class="dropdown-modal" id="fromModal">
+        <div class="dropdown-header">🛫 Select Departure City</div>
+        <button class="dropdown-option" onclick="selectFrom('Hyderabad')">
+            <span>Hyderabad</span>
+            <img src="static/Images/L.png" alt="Hyderabad">
+        </button>
+        <button class="dropdown-option" onclick="selectFrom('Delhi')">
+            <span>Delhi</span>
+            <img src="static/Images/O.png" alt="Delhi">
+        </button>
+    </div>
+
+    <div class="dropdown-modal" id="toModal">
+        <div class="dropdown-header">🛬 Select Destination City</div>
+        <button class="dropdown-option" onclick="selectTo('New York')">
+            <span>New York</span>
+            <img src="static/Images/A.png" alt="New York">
+        </button>
+        <button class="dropdown-option" onclick="selectTo('Canada')">
+            <span>Canada</span>
+            <img src="static/Images/B.png" alt="Canada">
+        </button>
+    </div>
+
+    <div class="dropdown-modal" id="classModal">
+        <div class="dropdown-header">💺 Select Class</div>
+        <button class="dropdown-option" onclick="selectClass('Economy')">
+            <span>Economy</span>
+            <img src="static/Images/C.png" alt="Economy">
+        </button>
+        <button class="dropdown-option" onclick="selectClass('Business')">
+            <span>Business</span>
+            <img src="static/Images/D.png" alt="Business">
+        </button>
+        <button class="dropdown-option" onclick="selectClass('First Class')">
+            <span>First Class</span>
+            <img src="static/Images/F.png" alt="First Class">
+        </button>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">📱 Airport Self-Service Kiosk</div>
+            <div class="time-display" id="currentTime">Loading...</div>
+        </div>
+
+        <div class="page">
+            <div class="page-title">📱 Book New Flight</div>
+            
+            <div class="info-box">
+                <h4 style="color: #667eea; margin-bottom: 15px;">✈️ Aadhar-Based Booking</h4>
+                <p style="color: #636e72;">Enter your 12-digit Aadhar number to start booking</p>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            
+            <form id="bookingForm">
+                <div class="form-group">
+                    <label class="form-label">🆔 Aadhar Number</label>
+                    <input type="text" class="form-input" id="aadharInput" readonly placeholder="Click to enter Aadhar number" onclick="openKeypad()">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">👤 First Name</label>
+                    <input type="text" class="form-input" id="firstName" readonly placeholder="Auto-filled from Aadhar">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">👤 Last Name</label>
+                    <input type="text" class="form-input" id="lastName" readonly placeholder="Auto-filled from Aadhar">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">📧 Email ID</label>
+                    <input type="email" class="form-input" id="email" readonly placeholder="Auto-filled from Aadhar">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">🛂 Passport Number</label>
+                    <input type="text" class="form-input" id="passportNumber" readonly placeholder="Auto-filled from Aadhar">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">🛫 From</label>
+                    <input type="text" class="form-input" id="fromInput" readonly placeholder="Select departure city">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">🛬 To</label>
+                    <input type="text" class="form-input" id="toInput" readonly placeholder="Select destination city">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">💺 Class</label>
+                    <input type="text" class="form-input" id="classInput" readonly placeholder="Select travel class">
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    ✈️ Book Flight
+                    <img src="static/Images/Y.png" alt="Submit">
+                </button>
+            </form>
+
+            <div class="receipt" id="receipt">
+                <div class="receipt-header">
+                    <h2 style="color: #667eea; margin-bottom: 10px;">✅ Booking Successful</h2>
+                    <p style="color: #636e72;">Flight Booking Confirmation</p>
+                </div>
+
+                <div class="receipt-item">
+                    <span><strong>Aadhar Number:</strong></span>
+                    <span id="receiptAadhar"></span>
+                </div>
+
+                <div class="receipt-item">
+                    <span><strong>Passenger Name:</strong></span>
+                    <span id="receiptName"></span>
+                </div>
+
+                <div class="receipt-item">
+                    <span><strong>Email:</strong></span>
+                    <span id="receiptEmail"></span>
+                </div>
+
+                <div class="receipt-item">
+                    <span><strong>Passport:</strong></span>
+                    <span id="receiptPassport"></span>
+                </div>
+
+                <div class="receipt-item">
+                    <span><strong>From:</strong></span>
+                    <span id="receiptFrom"></span>
+                </div>
+
+                <div class="receipt-item">
+                    <span><strong>To:</strong></span>
+                    <span id="receiptTo"></span>
+                </div>
+
+                <div class="receipt-item">
+                    <span><strong>Class:</strong></span>
+                    <span id="receiptClass"></span>
+                </div>
+
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px dashed #667eea;">
+                    <p style="color: #636e72; margin-bottom: 15px;">Booking Reference: <strong style="color: #667eea; font-size: 24px;" id="bookingRef"></strong></p>
+                    <p style="color: #00b894; font-weight: 600;">✅ Your flight has been booked successfully!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let aadharNumber = '';
+        let excelData = {};
+        let bookingData = {};
+        let selectedFrom = '';
+        let selectedTo = '';
+        let selectedClass = '';
+
+        // Load Excel file on page load
+        async function loadExcelData() {
+            try {
+                const response = await fetch('static/BookingDetails.xlsx');
+                if (!response.ok) {
+                    return;
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                excelData = {};
+                jsonData.forEach(row => {
+                    const aadhar = String(row['Aadhar'] || row['aadhar'] || '').trim();
+                    if (aadhar) {
+                        excelData[aadhar] = {
+                            firstName: row['First Name'] || row['first name'] || '',
+                            lastName: row['Last Name'] || row['last name'] || '',
+                            email: row['Email Id'] || row['email'] || row['Email'] || '',
+                            passportNumber: row['Passport Number'] || row['passport'] || ''
+                        };
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading Excel data:', error);
+            }
+        }
+
+        // Function to capture receipt as image and send email
+        async function captureAndEmailReceipt() {
+            const receiptElement = document.getElementById('receipt');
+            
+            try {
+                // Use html2canvas to capture the receipt
+                const canvas = await html2canvas(receiptElement, {
+                    backgroundColor: '#ffffff',
+                    scale: 2
+                });
+                
+                // Convert canvas to blob
+                canvas.toBlob(async (blob) => {
+                    const formData = new FormData();
+                    formData.append('receipt_image', blob, 'receipt.png');
+                    formData.append('email', bookingData.email);
+                    formData.append('name', bookingData.firstName + ' ' + bookingData.lastName);
+                    formData.append('aadhar', bookingData.aadhar);
+                    formData.append('from', selectedFrom);
+                    formData.append('to', selectedTo);
+                    formData.append('class', selectedClass);
+                    formData.append('booking_ref', document.getElementById('bookingRef').textContent);
+                    
+                    const response = await fetch('/send_booking_email', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        showSuccess('✅ Booking confirmation sent to ' + bookingData.email);
+                    } else {
+                        showError('Email could not be sent, but booking is confirmed');
+                    }
+                }, 'image/png');
+            } catch (error) {
+                console.error('Error capturing receipt:', error);
+                showError('Could not send email, but booking is confirmed');
+            }
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('currentTime').textContent = timeString;
+        }
+
+        function openKeypad() {
+            document.getElementById('aadharKeypad').classList.add('active');
+            document.getElementById('keypadOverlay').classList.add('active');
+        }
+
+        function closeKeypad() {
+            document.getElementById('aadharKeypad').classList.remove('active');
+            document.getElementById('keypadOverlay').classList.remove('active');
+        }
+
+        function addDigit(digit) {
+            if (aadharNumber.length < 12) {
+                aadharNumber += digit;
+                updateDisplay();
+                
+                if (aadharNumber.length === 12) {
+                    setTimeout(() => {
+                        closeKeypad();
+                        searchAndFillAadhar();
+                    }, 300);
+                }
+            }
+        }
+
+        function backspace() {
+            if (aadharNumber.length > 0) {
+                aadharNumber = aadharNumber.slice(0, -1);
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            const display = document.getElementById('aadharDisplay');
+            const input = document.getElementById('aadharInput');
+            let displayText = aadharNumber;
+            
+            for (let i = aadharNumber.length; i < 12; i++) {
+                displayText += '_';
+            }
+            
+            displayText = displayText.match(/.{1,4}/g).join(' ');
+            display.textContent = displayText;
+            
+            if (aadharNumber.length === 12) {
+                input.value = aadharNumber.match(/.{1,4}/g).join(' ');
+            } else {
+                input.value = '';
+            }
+        }
+
+        function searchAndFillAadhar() {
+            hideMessages();
+            
+            const userData = excelData[aadharNumber];
+            
+            if (userData) {
+                document.getElementById('firstName').value = userData.firstName;
+                document.getElementById('lastName').value = userData.lastName;
+                document.getElementById('email').value = userData.email;
+                document.getElementById('passportNumber').value = userData.passportNumber;
+                
+                bookingData = {
+                    aadhar: aadharNumber,
+                    ...userData
+                };
+                
+                showSuccess('✅ Details verified successfully!');
+                
+                setTimeout(() => {
+                    openFromModal();
+                }, 800);
+            } else {
+                showError('❌ Data not found. Please try again.');
+                clearForm();
+                setTimeout(() => {
+                    aadharNumber = '';
+                    updateDisplay();
+                    openKeypad();
+                }, 2000);
+            }
+        }
+
+        function openFromModal() {
+            document.getElementById('fromModal').classList.add('active');
+            document.getElementById('keypadOverlay').classList.add('active');
+        }
+
+        function closeFromModal() {
+            document.getElementById('fromModal').classList.remove('active');
+        }
+
+        function selectFrom(city) {
+            selectedFrom = city;
+            document.getElementById('fromInput').value = city;
+            closeFromModal();
+            
+            setTimeout(() => {
+                openToModal();
+            }, 300);
+        }
+
+        function openToModal() {
+            document.getElementById('toModal').classList.add('active');
+            document.getElementById('keypadOverlay').classList.add('active');
+        }
+
+        function closeToModal() {
+            document.getElementById('toModal').classList.remove('active');
+        }
+
+        function selectTo(city) {
+            selectedTo = city;
+            document.getElementById('toInput').value = city;
+            closeToModal();
+            
+            setTimeout(() => {
+                openClassModal();
+            }, 300);
+        }
+
+        function openClassModal() {
+            document.getElementById('classModal').classList.add('active');
+            document.getElementById('keypadOverlay').classList.add('active');
+        }
+
+        function closeClassModal() {
+            document.getElementById('classModal').classList.remove('active');
+            document.getElementById('keypadOverlay').classList.remove('active');
+        }
+
+        function selectClass(travelClass) {
+            selectedClass = travelClass;
+            document.getElementById('classInput').value = travelClass;
+            closeClassModal();
+            
+            document.getElementById('submitBtn').classList.add('show');
+        }
+
+        function clearForm() {
+            document.getElementById('firstName').value = '';
+            document.getElementById('lastName').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('passportNumber').value = '';
+            document.getElementById('fromInput').value = '';
+            document.getElementById('toInput').value = '';
+            document.getElementById('classInput').value = '';
+            document.getElementById('submitBtn').classList.remove('show');
+            selectedFrom = '';
+            selectedTo = '';
+            selectedClass = '';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.classList.add('show');
+        }
+
+        function hideMessages() {
+            document.getElementById('errorMessage').classList.remove('show');
+            document.getElementById('successMessage').classList.remove('show');
+        }
+
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!selectedFrom || !selectedTo || !selectedClass) {
+                showError('Please complete all selections');
+                return;
+            }
+
+            document.getElementById('receiptAadhar').textContent = bookingData.aadhar.match(/.{1,4}/g).join(' ');
+            document.getElementById('receiptName').textContent = bookingData.firstName + ' ' + bookingData.lastName;
+            document.getElementById('receiptEmail').textContent = bookingData.email;
+            document.getElementById('receiptPassport').textContent = bookingData.passportNumber;
+            document.getElementById('receiptFrom').textContent = selectedFrom;
+            document.getElementById('receiptTo').textContent = selectedTo;
+            document.getElementById('receiptClass').textContent = selectedClass;
+            document.getElementById('bookingRef').textContent = Math.random().toString(36).substr(2, 8).toUpperCase();
+
+            document.getElementById('receipt').classList.add('show');
+            document.getElementById('receipt').scrollIntoView({ behavior: 'smooth' });
+            
+            showSuccess('🎉 Flight booked successfully!');
+        });
+
+        document.getElementById('keypadOverlay').addEventListener('click', function() {
+            closeKeypad();
+            closeFromModal();
+            closeToModal();
+            closeClassModal();
+        });
+
+        // Initialize
+        updateTime();
+        setInterval(updateTime, 1000);
+        loadExcelData();
+        
+        // Automatically open keypad when page loads
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                openKeypad();
+            }, 500);
+        });
+    </script>
+    <script src="/static/js/gesture-handler.js"></script>
+</body>
+</html>

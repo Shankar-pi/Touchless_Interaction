@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baggage Tags - Airport Kiosk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('/flight-icon.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d3436;
+        }
+
+        .time-display {
+            font-size: 18px;
+            color: #636e72;
+            font-weight: 500;
+        }
+
+        .page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px);
+        }
+
+        .page-title {
+            font-size: 42px;
+            color: #2d3436;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #74b9ff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #74b9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #74b9ff;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .back-gesture {
+            position: fixed;
+            top: 30px;
+            left: 100px;
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            z-index: 1000;
+        }
+
+        .info-box {
+            background: #e8f4fd;
+            border: 2px solid #74b9ff;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        th {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            font-weight: 600;
+        }
+
+        .baggage-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .baggage-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3436;
+            margin-bottom: 12px;
+        }
+
+        .select-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .custom-select {
+            flex: 1;
+            position: relative;
+        }
+
+        .select-display {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .select-display:hover {
+            border-color: #74b9ff;
+        }
+
+        .select-display.active {
+            border-color: #0984e3;
+            box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.2);
+        }
+
+        .select-arrow {
+            margin-left: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .select-display.active .select-arrow {
+            transform: rotate(180deg);
+        }
+
+        .select-options {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #74b9ff;
+            border-radius: 12px;
+            margin-top: 5px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .select-options.active {
+            display: block;
+        }
+
+        .select-option {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .select-option:last-child {
+            border-bottom: none;
+        }
+
+        .select-option:hover {
+            background: #f8f9fa;
+        }
+
+        .option-text {
+            font-size: 18px;
+            color: #2d3436;
+            flex: 1;
+        }
+
+        .option-gesture {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            margin-left: 15px;
+        }
+
+        .gesture-icon {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #74b9ff;
+        }
+
+        .form-input:disabled {
+            background: #f8f9fa;
+            color: #636e72;
+            cursor: not-allowed;
+        }
+
+        .btn-wrapper {
+            text-align: center;
+            margin-top: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 18px 35px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(116, 185, 255, 0.4);
+        }
+
+        .success-box {
+            display: none;
+            background: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .success-box.show {
+            display: block;
+        }
+
+        .receipt {
+            display: none;
+            background: white;
+            border: 3px dashed #2d3436;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 30px 0;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .receipt.show {
+            display: block;
+        }
+
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px solid #2d3436;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+
+        .receipt-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2d3436;
+            margin-bottom: 10px;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .receipt-label {
+            font-weight: 600;
+            color: #636e72;
+        }
+
+        .receipt-value {
+            color: #2d3436;
+            font-weight: 600;
+        }
+
+        .receipt-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #2d3436;
+            text-align: center;
+            font-size: 14px;
+            color: #636e72;
+        }
+
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .receipt, .receipt * {
+                visibility: visible;
+            }
+            .receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">←</a>
+    <img src="static/Images/U.png" alt="Back Gesture" class="back-gesture">
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">🧳 Airport Self-Service Kiosk</div>
+            <div class="time-display" id="currentTime">Loading...</div>
+        </div>
+
+        <div class="page">
+            <div class="page-title">🧳 Baggage Tags & Information</div>
+            
+            <div class="info-box">
+                <h4 style="color: #0984e3; margin-bottom: 15px; font-size: 20px;">📋 Baggage Allowance</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Dimensions</th>
+                            <th>Weight</th>
+                            <th>Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Carry-On</strong></td>
+                            <td>55x40x23 cm</td>
+                            <td>8 kg</td>
+                            <td>1 bag</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Personal Item</strong></td>
+                            <td>40x30x15 cm</td>
+                            <td>3 kg</td>
+                            <td>1 bag</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Checked Bag</strong></td>
+                            <td>158 cm total</td>
+                            <td>23 kg</td>
+                            <td>1-2 bags</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="warning-box">
+                <h4 style="color: #856404; margin-bottom: 15px; font-size: 20px;">⚠️ Prohibited Items</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h5 style="margin-bottom: 10px;">Carry-On Restrictions:</h5>
+                        <ul style="color: #856404; line-height: 2;">
+                            <li>Liquids over 100ml</li>
+                            <li>Sharp objects</li>
+                            <li>Tools over 7 inches</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h5 style="margin-bottom: 10px;">Not Allowed:</h5>
+                        <ul style="color: #856404; line-height: 2;">
+                            <li>Explosives</li>
+                            <li>Flammable items</li>
+                            <li>Toxic substances</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <h4 style="color: #0984e3; margin-bottom: 15px; font-size: 20px;">💰 Additional Fees</h4>
+                
+                <div class="baggage-card">
+                    <div class="baggage-icon">🧳</div>
+                    <div style="flex: 1;">
+                        <h5 style="font-size: 18px; margin-bottom: 5px;">Extra Bag</h5>
+                        <p style="color: #636e72;">Additional checked baggage</p>
+                        <p style="font-size: 24px; color: #00b894; font-weight: bold; margin-top: 10px;">$50</p>
+                    </div>
+                </div>
+
+                <div class="baggage-card">
+                    <div class="baggage-icon">⚖️</div>
+                    <div style="flex: 1;">
+                        <h5 style="font-size: 18px; margin-bottom: 5px;">Overweight (23-32kg)</h5>
+                        <p style="color: #636e72;">Excess weight charge</p>
+                        <p style="font-size: 24px; color: #e17055; font-weight: bold; margin-top: 10px;">$75</p>
+                    </div>
+                </div>
+
+                <div class="baggage-card">
+                    <div class="baggage-icon">📏</div>
+                    <div style="flex: 1;">
+                        <h5 style="font-size: 18px; margin-bottom: 5px;">Oversized Bag</h5>
+                        <p style="color: #636e72;">Exceeds 158cm total</p>
+                        <p style="font-size: 24px; color: #e17055; font-weight: bold; margin-top: 10px;">$100</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3 style="margin: 40px 0 20px; color: #2d3436; text-align: center;">🏷️ Print Baggage Tags</h3>
+            
+            <form id="baggageForm">
+                <div class="form-group">
+                    <label class="form-label">📝 Booking Reference</label>
+                    <div class="select-wrapper">
+                        <div class="custom-select">
+                            <div class="select-display" id="bookingDisplay" onclick="toggleBookingDropdown()">
+                                <span id="bookingText">-- Select Booking Reference --</span>
+                                <span class="select-arrow">▼</span>
+                            </div>
+                            <div class="select-options" id="bookingOptions">
+                                <div class="select-option" onclick="selectBooking('ABC123')">
+                                    <span class="option-text">ABC123</span>
+                                    <img src="static/Images/C.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectBooking('XYZ789')">
+                                    <span class="option-text">XYZ789</span>
+                                    <img src="static/Images/D.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectBooking('DEF456')">
+                                    <span class="option-text">DEF456</span>
+                                    <img src="static/Images/E.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectBooking('GHI012')">
+                                    <span class="option-text">GHI012</span>
+                                    <img src="static/Images/F.png" alt="Gesture" class="option-gesture">
+                                </div>
+                            </div>
+                        </div>
+                        <img src="static/Images/A.png" alt="Select Gesture" class="gesture-icon">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">👤 Last Name</label>
+                    <input type="text" class="form-input" id="lastName" placeholder="Auto-filled from booking" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">🧳 Number of Bags</label>
+                    <div class="select-wrapper">
+                        <div class="custom-select">
+                            <div class="select-display" id="bagsDisplay" onclick="toggleBagsDropdown()">
+                                <span id="bagsText">1 bag</span>
+                                <span class="select-arrow">▼</span>
+                            </div>
+                            <div class="select-options" id="bagsOptions">
+                                <div class="select-option" onclick="selectBags('1')">
+                                    <span class="option-text">1 bag</span>
+                                    <img src="static/Images/I.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectBags('2')">
+                                    <span class="option-text">2 bags</span>
+                                    <img src="static/Images/J.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectBags('3')">
+                                    <span class="option-text">3 bags</span>
+                                    <img src="static/Images/K.png" alt="Gesture" class="option-gesture">
+                                </div>
+                            </div>
+                        </div>
+                        <img src="static/Images/H.png" alt="Select Gesture" class="gesture-icon">
+                    </div>
+                </div>
+
+                <div class="btn-wrapper">
+                    <button type="submit" class="btn btn-primary">🖨️ Print Tags</button>
+                    <img src="static/Images/L.png" alt="Print Gesture" class="gesture-icon">
+                </div>
+            </form>
+
+            <div class="success-box" id="successBox">
+                <h4 style="color: #28a745; margin-bottom: 15px; font-size: 24px;">✅ Tags Printed Successfully!</h4>
+                <p style="color: #155724; font-size: 18px;">Please collect your tags and attach them to your luggage</p>
+            </div>
+
+            <div class="receipt" id="receipt">
+                <div class="receipt-header">
+                    <div class="receipt-title">🧳 BAGGAGE TAG RECEIPT</div>
+                    <div style="color: #636e72; font-size: 14px;">Airport Self-Service Kiosk</div>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="receipt-label">Booking Reference:</span>
+                    <span class="receipt-value" id="receiptBooking"></span>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="receipt-label">Passenger Name:</span>
+                    <span class="receipt-value" id="receiptName"></span>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="receipt-label">Flight Number:</span>
+                    <span class="receipt-value" id="receiptFlight"></span>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="receipt-label">Destination:</span>
+                    <span class="receipt-value" id="receiptDest"></span>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="receipt-label">Number of Bags:</span>
+                    <span class="receipt-value" id="receiptBags"></span>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="receipt-label">Tag Numbers:</span>
+                    <span class="receipt-value" id="receiptTags"></span>
+                </div>
+
+                <div class="receipt-row">
+                    <span class="receipt-label">Date & Time:</span>
+                    <span class="receipt-value" id="receiptTime"></span>
+                </div>
+
+                <div class="receipt-footer">
+                    <p><strong>Important:</strong> Keep this receipt for baggage claim</p>
+                    <p>Thank you for choosing our airline!</p>
+                    <div style="margin-top: 20px; font-family: monospace; font-size: 24px;">
+                        ||||| ||||| ||||| |||||
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bookingData = {
+            'ABC123': {
+                lastName: 'ANDERSON',
+                flight: 'SK101',
+                destination: 'New York (JFK)'
+            },
+            'XYZ789': {
+                lastName: 'WILLIAMS',
+                flight: 'SK205',
+                destination: 'London (LHR)'
+            },
+            'DEF456': {
+                lastName: 'MARTINEZ',
+                flight: 'SK308',
+                destination: 'Paris (CDG)'
+            },
+            'GHI012': {
+                lastName: 'THOMPSON',
+                flight: 'SK101',
+                destination: 'New York (JFK)'
+            }
+        };
+
+        let selectedBooking = '';
+        let selectedNumBags = '1';
+
+        function toggleBookingDropdown() {
+            const display = document.getElementById('bookingDisplay');
+            const options = document.getElementById('bookingOptions');
+            display.classList.toggle('active');
+            options.classList.toggle('active');
+            
+            // Close bags dropdown if open
+            document.getElementById('bagsDisplay').classList.remove('active');
+            document.getElementById('bagsOptions').classList.remove('active');
+        }
+
+        function toggleBagsDropdown() {
+            const display = document.getElementById('bagsDisplay');
+            const options = document.getElementById('bagsOptions');
+            display.classList.toggle('active');
+            options.classList.toggle('active');
+            
+            // Close booking dropdown if open
+            document.getElementById('bookingDisplay').classList.remove('active');
+            document.getElementById('bookingOptions').classList.remove('active');
+        }
+
+        function selectBooking(bookingRef) {
+            selectedBooking = bookingRef;
+            document.getElementById('bookingText').textContent = bookingRef;
+            toggleBookingDropdown();
+            
+            if (bookingData[bookingRef]) {
+                document.getElementById('lastName').value = bookingData[bookingRef].lastName;
+            }
+        }
+
+        function selectBags(numBags) {
+            selectedNumBags = numBags;
+            document.getElementById('bagsText').textContent = numBags + (numBags === '1' ? ' bag' : ' bags');
+            toggleBagsDropdown();
+        }
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        document.getElementById('baggageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!selectedBooking) {
+                
+                return;
+            }
+            
+            const booking = bookingData[selectedBooking];
+            const tags = [];
+            
+            for (let i = 0; i < selectedNumBags; i++) {
+                tags.push('TAG' + Math.random().toString(36).substr(2, 9).toUpperCase());
+            }
+            
+            // Fill receipt
+            document.getElementById('receiptBooking').textContent = selectedBooking;
+            document.getElementById('receiptName').textContent = booking.lastName;
+            document.getElementById('receiptFlight').textContent = booking.flight;
+            document.getElementById('receiptDest').textContent = booking.destination;
+            document.getElementById('receiptBags').textContent = selectedNumBags;
+            document.getElementById('receiptTags').textContent = tags.join(', ');
+            document.getElementById('receiptTime').textContent = new Date().toLocaleString();
+            
+            // Show success and receipt
+            document.getElementById('successBox').classList.add('show');
+            document.getElementById('receipt').classList.add('show');
+            
+            // Scroll to receipt
+            setTimeout(() => {
+                document.getElementById('receipt').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            const bookingSelect = document.getElementById('bookingDisplay').parentElement;
+            const bagsSelect = document.getElementById('bagsDisplay').parentElement;
+            
+            if (!bookingSelect.contains(event.target)) {
+                document.getElementById('bookingDisplay').classList.remove('active');
+                document.getElementById('bookingOptions').classList.remove('active');
+            }
+            
+            if (!bagsSelect.contains(event.target)) {
+                document.getElementById('bagsDisplay').classList.remove('active');
+                document.getElementById('bagsOptions').classList.remove('active');
+            }
+        });
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+<script src="/static/js/gesture-handler.js"></script>
+</body>
+</html>

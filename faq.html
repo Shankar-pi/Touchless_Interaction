@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - Airport Kiosk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: url('/flight-icon.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d3436;
+        }
+
+        .time-display {
+            font-size: 18px;
+            color: #636e72;
+            font-weight: 500;
+        }
+
+        .page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px);
+        }
+
+        .page-title {
+            font-size: 42px;
+            color: #2d3436;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #74b9ff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #74b9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #74b9ff;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .faq-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .faq-item:hover {
+            border-color: #74b9ff;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .faq-question {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2d3436;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .faq-answer {
+            font-size: 16px;
+            color: #636e72;
+            line-height: 1.8;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .faq-answer.show {
+            display: block;
+        }
+
+        .faq-category {
+            font-size: 28px;
+            color: #74b9ff;
+            font-weight: 700;
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #74b9ff;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <a href="help.html" class="back-btn">←</a>
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">❓ Airport Self-Service Kiosk</div>
+            <div class="time-display" id="currentTime">Loading...</div>
+        </div>
+
+        <div class="page">
+            <div class="page-title">❓ Frequently Asked Questions</div>
+
+            <input type="text" class="form-input" placeholder="🔍 Search FAQs..." id="searchFAQ" onkeyup="searchFAQs()">
+
+            <div class="faq-category">✈️ Flight Information</div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    How early should I arrive at the airport?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    We recommend arriving at least 2 hours before domestic flights and 3 hours before international flights. This allows time for check-in, security screening, and finding your gate.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    Where can I find my gate information?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Gate information is displayed on your boarding pass and on the flight information screens throughout the airport. Gates are typically assigned 1-2 hours before departure.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    What if my flight is delayed or cancelled?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Check the flight information screens or visit the airline counter for rebooking options. Airlines will provide accommodation and meal vouchers for significant delays when applicable.
+                </div>
+            </div>
+
+            <div class="faq-category">🎫 Check-In & Boarding</div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    Can I check in online?
+                    <span>▼</span>
+</div>
+                <div class="faq-answer">
+                    Yes! Online check-in opens 24 hours before your flight departure. You can check in via the airline's website or mobile app, then print your boarding pass at the kiosk or show it on your mobile device.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    What if I can't find my booking?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Double-check your booking reference (6 characters) and ensure your last name is spelled exactly as it appears on your booking. If you still can't find it, visit the airline counter for assistance.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    Can I change my seat after check-in?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Yes, you can change your seat at the gate or through the airline's mobile app before boarding. Some seat changes may incur additional fees depending on your fare type.
+                </div>
+            </div>
+
+            <div class="faq-category">🧳 Baggage Information</div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    What's the baggage weight limit?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Standard checked baggage: 23kg (50 lbs). Carry-on baggage: 8kg (17 lbs). Exceeding these limits will result in additional fees. Business and First Class passengers may have higher allowances.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    Can I bring liquids in my carry-on?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Liquids must be in containers of 100ml or less and placed in a clear, resealable plastic bag (max 1 liter). Each passenger is limited to one bag. Larger liquids must be checked.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    What items are prohibited in baggage?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Prohibited items include: explosives, flammable materials, compressed gases, sharp objects in carry-on, lithium batteries (loose), and toxic substances. Check with your airline for a complete list.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    What if my baggage is lost or damaged?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Report lost or damaged baggage immediately at the airline's baggage service desk in the arrivals area. Keep your baggage claim tags as proof of ownership.
+                </div>
+            </div>
+
+            <div class="faq-category">🛂 Security & Documentation</div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    What documents do I need for domestic flights?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    You need a valid government-issued photo ID (driver's license, passport, or national ID card) and your boarding pass.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    What documents do I need for international flights?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    You need a valid passport (must be valid for at least 6 months beyond your travel dates), visa (if required for your destination), boarding pass, and any required health certificates or vaccination records.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    How long does security screening take?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Security screening typically takes 15-30 minutes but can be longer during peak hours. We recommend arriving early to account for potential delays.
+                </div>
+            </div>
+
+            <div class="faq-category">🍽️ Airport Facilities</div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    Are there restaurants and shops after security?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Yes, all terminals have restaurants, cafes, duty-free shops, and retail stores in the secure area after you pass through security screening.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    Is there free WiFi at the airport?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Yes, free WiFi is available throughout the airport. Connect to the network "Airport_Free_WiFi" and follow the registration instructions.
+                </div>
+            </div>
+
+            <div class="faq-item" onclick="toggleFAQ(this)">
+                <div class="faq-question">
+                    Where can I charge my devices?
+                    <span>▼</span>
+                </div>
+                <div class="faq-answer">
+                    Charging stations are located throughout the terminal near seating areas and gates. Look for the charging station icons on the airport map.
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 50px; padding: 30px; background: #e8f4fd; border-radius: 15px;">
+                <h4 style="color: #74b9ff; margin-bottom: 15px;">Still Need Help?</h4>
+                <p style="color: #636e72; margin-bottom: 20px;">Can't find the answer you're looking for?</p>
+                <a href="call-support.html" style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #74b9ff, #0984e3); color: white; text-decoration: none; border-radius: 10px; font-weight: 600;">Contact Support</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('currentTime').textContent = timeString;
+        }
+
+        function toggleFAQ(element) {
+            const answer = element.querySelector('.faq-answer');
+            const arrow = element.querySelector('.faq-question span');
+            
+            answer.classList.toggle('show');
+            arrow.textContent = answer.classList.contains('show') ? '▲' : '▼';
+        }
+
+        function searchFAQs() {
+            const input = document.getElementById('searchFAQ').value.toLowerCase();
+            const faqItems = document.querySelectorAll('.faq-item');
+            
+            faqItems.forEach(item => {
+                const question = item.querySelector('.faq-question').textContent.toLowerCase();
+                const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
+                
+                if (question.includes(input) || answer.includes(input)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+<script src="/static/js/gesture-handler.js"></script>
+</body>
+</html>
