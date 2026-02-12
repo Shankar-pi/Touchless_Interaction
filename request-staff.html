@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Staff - Airport Kiosk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2d3436;
+        }
+
+        .time-display {
+            font-size: 18px;
+            color: #636e72;
+            font-weight: 500;
+        }
+
+        .page {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px);
+        }
+
+        .page-title {
+            font-size: 42px;
+            color: #2d3436;
+            margin-bottom: 30px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #667eea;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .back-gesture {
+            position: fixed;
+            top: 30px;
+            left: 100px;
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            z-index: 1000;
+        }
+
+        .assistance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .assistance-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 3px solid #e9ecef;
+            border-radius: 20px;
+            padding: 30px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .assistance-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .assistance-card.selected {
+            border-color: #00b894;
+            background: #d4edda;
+        }
+
+        .card-gesture {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+
+        .icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            color: white;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2d3436;
+        }
+
+        .form-section {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .form-section.show {
+            display: block;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            font-weight: 600;
+            font-size: 18px;
+            color: #2d3436;
+        }
+
+        .select-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .custom-select {
+            flex: 1;
+            position: relative;
+        }
+
+        .select-display {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .select-display:hover {
+            border-color: #667eea;
+        }
+
+        .select-display.active {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .select-arrow {
+            margin-left: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .select-display.active .select-arrow {
+            transform: rotate(180deg);
+        }
+
+        .select-options {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            margin-top: 5px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .select-options.active {
+            display: block;
+        }
+
+        .select-option {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .select-option:last-child {
+            border-bottom: none;
+        }
+
+        .select-option:hover {
+            background: #f8f9fa;
+        }
+
+        .option-text {
+            font-size: 18px;
+            color: #2d3436;
+            flex: 1;
+        }
+
+        .option-gesture {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+            margin-left: 15px;
+        }
+
+        .gesture-icon {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 600;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-gesture {
+            width: 40px;
+            height: 40px;
+            object-fit: contain;
+        }
+
+        .success {
+            display: none;
+            background: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 15px;
+            text-align: center;
+            padding: 40px;
+            margin-top: 30px;
+        }
+
+        .success.show {
+            display: block;
+        }
+
+        .success-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .success h2 {
+            color: #28a745;
+            font-size: 32px;
+            margin-bottom: 15px;
+        }
+
+        .success p {
+            color: #155724;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <a href="help.html" class="back-btn">←</a>
+    <img src="static/Images/U.png" alt="Back Gesture" class="back-gesture">
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">👨‍💼 Airport Self-Service Kiosk</div>
+            <div class="time-display" id="currentTime">Loading...</div>
+        </div>
+
+        <div class="page">
+            <div class="page-title">👨‍💼 Request Staff Assistance</div>
+
+            <div style="text-align: center; font-size: 18px; margin-bottom: 40px; color: #636e72;">
+                Select the type of assistance you need
+            </div>
+
+            <div id="mainContent">
+                <div class="assistance-grid">
+                    <div class="assistance-card" onclick="select('Wheelchair')">
+                        <img src="static/Images/A.png" alt="Wheelchair Gesture" class="card-gesture">
+                        <div class="icon">♿</div>
+                        <div class="title">Wheelchair</div>
+                    </div>
+
+                    <div class="assistance-card" onclick="select('Flight Changes')">
+                        <img src="static/Images/B.png" alt="Flight Changes Gesture" class="card-gesture">
+                        <div class="icon">✈️</div>
+                        <div class="title">Flight Changes</div>
+                    </div>
+
+                    <div class="assistance-card" onclick="select('Other')">
+                        <img src="static/Images/C.png" alt="Other Gesture" class="card-gesture">
+                        <div class="icon">❓</div>
+                        <div class="title">Other</div>
+                    </div>
+                </div>
+
+                <div class="form-section" id="formSection">
+                    <label>📞 Contact Number (Optional)</label>
+                    <div class="select-wrapper">
+                        <div class="custom-select">
+                            <div class="select-display" id="selectDisplay" onclick="toggleDropdown()">
+                                <span id="selectedText">Select contact number</span>
+                                <span class="select-arrow">▼</span>
+                            </div>
+                            <div class="select-options" id="selectOptions">
+                                <div class="select-option" onclick="selectPhone('')">
+                                    <span class="option-text">No contact number</span>
+                                </div>
+                                <div class="select-option" onclick="selectPhone('+1-555-0101')">
+                                    <span class="option-text">+1-555-0101</span>
+                                    <img src="static/Images/D.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectPhone('+1-555-0102')">
+                                    <span class="option-text">+1-555-0102</span>
+                                    <img src="static/Images/E.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectPhone('+1-555-0103')">
+                                    <span class="option-text">+1-555-0103</span>
+                                    <img src="static/Images/F.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectPhone('+1-555-0104')">
+                                    <span class="option-text">+1-555-0104</span>
+                                    <img src="static/Images/H.png" alt="Gesture" class="option-gesture">
+                                </div>
+                                <div class="select-option" onclick="selectPhone('+1-555-0105')">
+                                    <span class="option-text">+1-555-0105</span>
+                                    <img src="static/Images/I.png" alt="Gesture" class="option-gesture">
+                                </div>
+                            </div>
+                        </div>
+                        <img src="static/Images/J.png" alt="Select Gesture" class="gesture-icon">
+                    </div>
+
+                    <button onclick="submitRequest()">
+                        Submit Request
+                        <img src="static/Images/Y.png" alt="Submit Gesture" class="btn-gesture">
+                    </button>
+                </div>
+            </div>
+
+            <div class="success" id="success">
+                <div class="success-icon">✅</div>
+                <h2>Request Submitted!</h2>
+                <p id="assistanceType" style="margin-top: 10px;"></p>
+                <p id="contactNumber" style="margin-top: 10px;"></p>
+                <p style="margin-top: 20px; font-size: 22px; font-weight: bold;">Staff will arrive in 5-10 minutes</p>
+                <p style="margin-top: 25px; font-size: 16px; color: #636e72;">Reference Number: <strong style="color: #667eea; font-size: 20px;" id="requestRef"></strong></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedType = null;
+        let selectedPhoneNumber = '';
+
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('currentTime').textContent = timeString;
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        function select(type) {
+            document.querySelectorAll('.assistance-card').forEach(c => c.classList.remove('selected'));
+            event.target.closest('.assistance-card').classList.add('selected');
+            selectedType = type;
+            document.getElementById('formSection').classList.add('show');
+        }
+
+        function toggleDropdown() {
+            const display = document.getElementById('selectDisplay');
+            const options = document.getElementById('selectOptions');
+            display.classList.toggle('active');
+            options.classList.toggle('active');
+        }
+
+        function selectPhone(phone) {
+            selectedPhoneNumber = phone;
+            const text = phone ? phone : 'No contact number';
+            document.getElementById('selectedText').textContent = text;
+            toggleDropdown();
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const customSelect = document.querySelector('.custom-select');
+            if (customSelect && !customSelect.contains(event.target)) {
+                document.getElementById('selectDisplay').classList.remove('active');
+                document.getElementById('selectOptions').classList.remove('active');
+            }
+        });
+
+        function submitRequest() {
+            if (!selectedType) {
+                
+                return;
+            }
+            
+            const refNumber = 'REQ-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+            
+            document.getElementById('assistanceType').textContent = 'Assistance Type: ' + selectedType;
+            
+            if (selectedPhoneNumber) {
+                document.getElementById('contactNumber').textContent = 'Contact Number: ' + selectedPhoneNumber;
+            } else {
+                document.getElementById('contactNumber').textContent = 'Contact Number: Not Provided';
+            }
+            
+            document.getElementById('requestRef').textContent = refNumber;
+            document.getElementById('mainContent').style.display = 'none';
+            document.getElementById('success').classList.add('show');
+        }
+    </script>
+<script src="/static/js/gesture-handler.js"></script>    
+</body>
+</html>
